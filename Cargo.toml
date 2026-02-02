@@ -1,7 +1,14 @@
 [package]
-name = "polymarket-arbitrage-bot"
+name = "gabagool-polymarket-arb-bot"
 version = "0.1.0"
 edition = "2021"
+description = "15-minute BTC/SOL Polymarket arbitrage bot — monitors SOL and BTC price prediction markets and executes trades when arbitrage opportunities appear."
+authors = ["gabagool222"]
+repository = "https://github.com/gabagool222/15m-btc-sol-polymarket-arbitrage-bot"
+license = "MIT"
+readme = "README.md"
+keywords = ["polymarket", "arbitrage", "btc", "sol", "trading", "prediction-market"]
+categories = ["financial"]
 
 [dependencies]
 tokio = { version = "1.35", features = ["full"] }

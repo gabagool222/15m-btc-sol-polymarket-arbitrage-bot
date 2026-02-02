@@ -1,9 +1,9 @@
 mod api;
-mod arbitrage;
 mod config;
 mod models;
 mod monitor;
-mod trader;
+mod strategy;
+mod trading;
 
 use anyhow::{Context, Result};
 use clap::Parser;
@@ -12,9 +12,9 @@ use log::{info, warn};
 use std::sync::Arc;
 
 use api::PolymarketApi;
-use arbitrage::ArbitrageDetector;
 use monitor::MarketMonitor;
-use trader::Trader;
+use strategy::ArbitrageDetector;
+use trading::Trader;
 
 #[tokio::main]
 async fn main() -> Result<()> {

@@ -39,7 +39,7 @@ impl MarketMonitor {
             .unwrap()
             .as_secs();
         let current_period = (current_time / 900) * 900; // Round to nearest 15 minutes
-        
+
         Self {
             api,
             sol_market: Arc::new(tokio::sync::Mutex::new(sol_market)),
@@ -55,21 +55,25 @@ impl MarketMonitor {
     }
 
     /// Update markets when a new 15-minute period starts
-    pub async fn update_markets(&self, sol_market: crate::models::Market, btc_market: crate::models::Market) -> Result<()> {
+    pub async fn update_markets(
+        &self,
+        sol_market: crate::models::Market,
+        btc_market: crate::models::Market,
+    ) -> Result<()> {
         info!("🔄 Updating to new 15-minute period markets...");
         info!("New SOL Market: {} ({})", sol_market.slug, sol_market.condition_id);
         info!("New BTC Market: {} ({})", btc_market.slug, btc_market.condition_id);
-        
+
         *self.sol_market.lock().await = sol_market;
         *self.btc_market.lock().await = btc_market;
-        
+
         // Reset token IDs - will be refreshed on next fetch
         *self.sol_up_token_id.lock().await = None;
         *self.sol_down_token_id.lock().await = None;
         *self.btc_up_token_id.lock().await = None;
         *self.btc_down_token_id.lock().await = None;
         *self.last_market_refresh.lock().await = None;
-        
+
         // Update current period timestamp
         let current_time = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
@@ -77,7 +81,7 @@ impl MarketMonitor {
             .as_secs();
         let new_period = (current_time / 900) * 900;
         *self.current_period_timestamp.lock().await = new_period;
-        
+
         Ok(())
     }
 
@@ -88,9 +92,9 @@ impl MarketMonitor {
             .unwrap()
             .as_secs();
         let current_period = (current_time / 900) * 900;
-        
+
         let stored_period = *self.current_period_timestamp.lock().await;
-        
+
         // If current period is different from stored period, we need new markets
         current_period != stored_period
     }
@@ -115,7 +119,6 @@ impl MarketMonitor {
         if !should_refresh {
             return Ok(());
         }
-
 
         let (sol_condition_id, btc_condition_id) = self.get_current_condition_ids().await;
 
@@ -158,13 +161,13 @@ impl MarketMonitor {
         self.refresh_market_tokens().await?;
 
         let (sol_condition_id, btc_condition_id) = self.get_current_condition_ids().await;
-        
+
         // Fetch prices for all tokens using the price endpoint
         let sol_up_token_id = self.sol_up_token_id.lock().await.clone();
         let sol_down_token_id = self.sol_down_token_id.lock().await.clone();
         let btc_up_token_id = self.btc_up_token_id.lock().await.clone();
         let btc_down_token_id = self.btc_down_token_id.lock().await.clone();
-        
+
         let (sol_up_price, sol_down_price, btc_up_price, btc_down_price) = tokio::join!(
             self.fetch_token_price(&sol_up_token_id, "SOL", "Up"),
             self.fetch_token_price(&sol_down_token_id, "SOL", "Down"),
@@ -230,7 +233,6 @@ impl MarketMonitor {
         }
     }
 
-
     /// Start monitoring markets continuously
     /// Returns a callback function that can be used to update markets when new period starts
     pub async fn start_monitoring<F, Fut>(&self, callback: F)
@@ -239,7 +241,7 @@ impl MarketMonitor {
         Fut: std::future::Future<Output = ()> + Send + 'static,
     {
         info!("Starting market monitoring...");
-        
+
         loop {
             match self.fetch_market_data().await {
                 Ok(snapshot) => {
@@ -250,9 +252,8 @@ impl MarketMonitor {
                     warn!("Error fetching market data: {}", e);
                 }
             }
-            
+
             sleep(self.check_interval).await;
         }
     }
 }
-

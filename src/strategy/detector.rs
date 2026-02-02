@@ -83,7 +83,7 @@ impl ArbitrageDetector {
         // Check if total cost is less than $1
         if total_cost < dollar {
             let expected_profit = dollar - total_cost;
-            
+
             // Only return if profit meets threshold
             if expected_profit >= self.min_profit_threshold {
                 return Some(ArbitrageOpportunity {
@@ -102,4 +102,3 @@ impl ArbitrageDetector {
         None
     }
 }
-

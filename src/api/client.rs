@@ -18,7 +18,7 @@ impl PolymarketApi {
             .timeout(std::time::Duration::from_secs(10))
             .build()
             .expect("Failed to create HTTP client");
-        
+
         Self {
             client,
             gamma_url,
@@ -46,15 +46,23 @@ impl PolymarketApi {
 
         let status = response.status();
         let json: Value = response.json().await.context("Failed to parse markets response")?;
-        
+
         if !status.is_success() {
-            log::warn!("Get all active markets API returned error status {}: {}", status, serde_json::to_string(&json).unwrap_or_default());
-            anyhow::bail!("API returned error status {}: {}", status, serde_json::to_string(&json).unwrap_or_default());
+            log::warn!(
+                "Get all active markets API returned error status {}: {}",
+                status,
+                serde_json::to_string(&json).unwrap_or_default()
+            );
+            anyhow::bail!(
+                "API returned error status {}: {}",
+                status,
+                serde_json::to_string(&json).unwrap_or_default()
+            );
         }
-        
+
         // Extract markets from events - events contain markets
         let mut all_markets = Vec::new();
-        
+
         if let Some(events) = json.as_array() {
             for event in events {
                 if let Some(markets) = event.get("markets").and_then(|m| m.as_array()) {
@@ -78,7 +86,7 @@ impl PolymarketApi {
                 }
             }
         }
-        
+
         log::debug!("Fetched {} active markets from events endpoint", all_markets.len());
         Ok(all_markets)
     }
@@ -87,18 +95,24 @@ impl PolymarketApi {
     /// The API returns an event object with a markets array
     pub async fn get_market_by_slug(&self, slug: &str) -> Result<Market> {
         let url = format!("{}/events/slug/{}", self.gamma_url, slug);
-        
-        let response = self.client.get(&url).send().await
+
+        let response = self
+            .client
+            .get(&url)
+            .send()
+            .await
             .context(format!("Failed to fetch market by slug: {}", slug))?;
-        
+
         let status = response.status();
         if !status.is_success() {
             anyhow::bail!("Failed to fetch market by slug: {} (status: {})", slug, status);
         }
-        
-        let json: Value = response.json().await
+
+        let json: Value = response
+            .json()
+            .await
             .context("Failed to parse market response")?;
-        
+
         // The response is an event object with a "markets" array
         // Extract the first market from the markets array
         if let Some(markets) = json.get("markets").and_then(|m| m.as_array()) {
@@ -109,7 +123,7 @@ impl PolymarketApi {
                 }
             }
         }
-        
+
         anyhow::bail!("Invalid market response format: no markets array found")
     }
 
@@ -146,26 +160,42 @@ impl PolymarketApi {
             .context(format!("Failed to fetch market for condition_id: {}", condition_id))?;
 
         let status = response.status();
-        
+
         if !status.is_success() {
             anyhow::bail!("Failed to fetch market (status: {})", status);
         }
 
-        let json_text = response.text().await
+        let json_text = response
+            .text()
+            .await
             .context("Failed to read response body")?;
 
-        let market: MarketDetails = serde_json::from_str(&json_text)
-            .map_err(|e| {
-                log::error!("Failed to parse market response: {}. Response was: {}", e, json_text);
-                anyhow::anyhow!("Failed to parse market response: {}", e)
-            })?;
+        let market: MarketDetails = serde_json::from_str(&json_text).map_err(|e| {
+            log::error!(
+                "Failed to parse market response: {}. Response was: {}",
+                e,
+                json_text
+            );
+            anyhow::anyhow!("Failed to parse market response: {}", e)
+        })?;
 
-        log::info!("Market response: condition_id={}, active={}, closed={}, accepting_orders={}, tokens={}", 
-                  market.condition_id, market.active, market.closed, market.accepting_orders, market.tokens.len());
-        
+        log::info!(
+            "Market response: condition_id={}, active={}, closed={}, accepting_orders={}, tokens={}",
+            market.condition_id,
+            market.active,
+            market.closed,
+            market.accepting_orders,
+            market.tokens.len()
+        );
+
         for token in &market.tokens {
-            log::info!("  Token: outcome={}, price={}, token_id={}, winner={}", 
-                      token.outcome, token.price, token.token_id, token.winner);
+            log::info!(
+                "  Token: outcome={}, price={}, token_id={}, winner={}",
+                token.outcome,
+                token.price,
+                token.token_id,
+                token.winner
+            );
         }
 
         Ok(market)
@@ -175,10 +205,7 @@ impl PolymarketApi {
     /// side: "BUY" or "SELL"
     pub async fn get_price(&self, token_id: &str, side: &str) -> Result<rust_decimal::Decimal> {
         let url = format!("{}/price", self.clob_url);
-        let params = [
-            ("side", side),
-            ("token_id", token_id),
-        ];
+        let params = [("side", side), ("token_id", token_id)];
 
         log::debug!("Fetching price from: {}?side={}&token_id={}", url, side, token_id);
 
@@ -200,7 +227,8 @@ impl PolymarketApi {
             .await
             .context("Failed to parse price response")?;
 
-        let price_str = json.get("price")
+        let price_str = json
+            .get("price")
             .and_then(|p| p.as_str())
             .ok_or_else(|| anyhow::anyhow!("Invalid price response format"))?;
 
@@ -215,7 +243,7 @@ impl PolymarketApi {
     /// Get best bid/ask prices for a token (from orderbook)
     pub async fn get_best_price(&self, token_id: &str) -> Result<Option<TokenPrice>> {
         let orderbook = self.get_orderbook(token_id).await?;
-        
+
         let best_bid = orderbook.bids.first().map(|b| b.price);
         let best_ask = orderbook.asks.first().map(|a| a.price);
 
@@ -233,9 +261,9 @@ impl PolymarketApi {
     /// Place an order (for production mode)
     pub async fn place_order(&self, order: &OrderRequest) -> Result<OrderResponse> {
         let url = format!("{}/orders", self.clob_url);
-        
+
         let mut request = self.client.post(&url).json(order);
-        
+
         if let Some(key) = &self.api_key {
             request = request.header("Authorization", format!("Bearer {}", key));
         }
@@ -253,4 +281,3 @@ impl PolymarketApi {
         Ok(order_response)
     }
 }
-
