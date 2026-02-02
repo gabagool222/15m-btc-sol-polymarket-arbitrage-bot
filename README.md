@@ -60,7 +60,7 @@ When such an opportunity is found, the bot:
 
 1. Buys the Up token in the SOL market  
 2. Buys the Down token in the BTC market (or the opposite pair: SOL Down + BTC Up)  
-3. Holds until resolution to realize profit  
+3. Holds until resolution to realize profits  
 
 For a full, beginner-friendly explanation, see [Trading Strategy](docs/trading-strategy.md).
 
